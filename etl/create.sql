@@ -132,26 +132,42 @@ party_address_geo_longitude text
 );
 COMMIT;
 BEGIN;
-\copy equipments FROM '../DATAFEST_EQUIPMENTS.csv' WITH CSV HEADER DELIMITER '|' QUOTE '^';
+\copy equipments FROM '/var/local/datafest_data/DATAFEST_EQUIPMENTS.csv' WITH CSV HEADER DELIMITER '|' QUOTE '^';
 \e 'equipments done'
 COMMIT;
 BEGIN;
-\copy transactions FROM '../DATAFEST_TRANSACTIONS.csv' WITH CSV HEADER DELIMITER '|' QUOTE '^';
+\copy transactions FROM '/var/local/datafest_data/DATAFEST_TRANSACTIONS.csv' WITH CSV HEADER DELIMITER '|' QUOTE '^';
 \e 'transactions done'
 COMMIT;
 BEGIN;
-\copy merchants FROM '../DATAFEST_MERCHANTS.csv' WITH CSV HEADER DELIMITER '|' QUOTE '^';
+\copy merchants FROM '/var/local/datafest_data/DATAFEST_MERCHANTS.csv' WITH CSV HEADER DELIMITER '|' QUOTE '^';
 \e 'merchants done'
 COMMIT;
 BEGIN;
-\copy cards FROM '../DATAFEST_CARDS.csv' WITH CSV HEADER DELIMITER '|' QUOTE '^';
+\copy cards FROM '/var/local/datafest_data/DATAFEST_CARDS.csv' WITH CSV HEADER DELIMITER '|' QUOTE '^';
 \e 'cards done'
 COMMIT;
 BEGIN;
-\copy parties FROM '../DATAFEST_PARTIES.csv' WITH CSV HEADER DELIMITER '|' QUOTE '^';
+\copy parties FROM '/var/local/datafest_data/DATAFEST_PARTIES.csv' WITH CSV HEADER DELIMITER '|' QUOTE '^';
 \e 'parties done'
 COMMIT;
 BEGIN;
-\copy accounts FROM '../DATAFEST_ACCOUNTS.csv' WITH CSV HEADER DELIMITER '|' QUOTE '^';
+\copy accounts FROM '/var/local/datafest_data/DATAFEST_ACCOUNTS.csv' WITH CSV HEADER DELIMITER '|' QUOTE '^';
 \e 'accounts done'
+COMMIT;
+
+BEGIN;
+ALTER TABLE equipments ADD COLUMN wkb_geometry geometry(POINT, 4326);
+UPDATE equipments SET cardmereqh_geo_latitude = replace(cardmereqh_geo_latitude, ',', '.');
+UPDATE equipments SET cardmereqh_geo_longitude = replace(cardmereqh_geo_longitude, ',', '.');
+UPDATE equipments SET wkb_geometry = ST_SetSRID(ST_MakePoint(cardmereqh_geo_longitude, cardmereqh_geo_latitude), 4326);
+
+ALTER TABLE parties ADD COLUMN wkb_geometry geometry(POINT, 4326);
+UPDATE parties SET cardmereqh_geo_latitude = replace(cardmereqh_geo_latitude, ',', '.');
+UPDATE parties SET cardmereqh_geo_longitude = replace(cardmereqh_geo_longitude, ',', '.');
+UPDATE parties SET wkb_geometry = ST_SetSRID(ST_MakePoint(party_address_geo_longitude, party_address_geo_latitude), 4326);
+
+CREATE INDEX equipments_geom_idx ON equipments USING gist(wkb_geometry);
+CREATE INDEX parties_geom_idx ON parties USING gist(wkb_geometry);
+
 COMMIT;
