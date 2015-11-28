@@ -224,8 +224,8 @@ alter table spadovky add column prekryv_penny int;
 alter table spadovky add column retezec varchar(20);
 update spadovky a set retezec = b.retezec from stores b where a.store_id=b.store_id;
 
-update spadovky  a set prekryv_billa = b.pocet from (select kod,count(*) pocet from spadovky where retezec = 'billa' group by kod) b where a.kod=b.kod;
-update spadovky  a set prekryv_penny = b.pocet from (select kod,count(*) pocet from spadovky where retezec = 'penny' group by kod) b where a.kod=b.kod;
+update spadovky  a set prekryv_billa = b.pocet from (select kod,count(*) pocet from spadovky where retezec = 'billa' and obrat_domacnost >=200 group by kod) b where a.kod=b.kod;
+update spadovky  a set prekryv_penny = b.pocet from (select kod,count(*) pocet from spadovky where retezec = 'penny' and obrat_domacnost >=200 group by kod) b where a.kod=b.kod;
 
 alter table pobocky add column vnitrni_konkurence int;
 update pobocky a set vnitrni_konkurence = b.pocet from (select store_id,max(prekryv_billa) pocet from spadovky where retezec='billa' group by store_id) b where a.store_id=b.store_id;
