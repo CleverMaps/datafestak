@@ -120,14 +120,116 @@ update rfm_retezec set rfm_segment_posledni = 3 where days_free < 7;
 
 update rfm_retezec set rfm_segment_suma = coalesce(rfm_segment_vyse,0)+coalesce(rfm_segment_frekvence,0)+coalesce(rfm_segment_posledni,0);
 
+alter table rfm_retezec add column kod_zsj_d varchar(7);
+update rfm_retezec a set kod_zsj_d=b.kod_zsj_d from parties_subset b where a.pt_unified_key=b.pt_unified_key;
+
+--rename column rfm_retezec => zakaznici
+create table zakaznici as select pt_unified_key customer_id,pohlavi,days_free posledni_nakup,segment,rfm_segment_vyse,rfm_segment_frekvence,rfm_segment_posledni,rfm_segment_suma rfm_suma,retezec,kod_zsj_d kod from rfm_retezec ;
+
+-- top, bezny, umirajicia a mrtvy klient
+create table rfm_stores_segments as select distinct store_id,null::int top_klient,null::int bezny_klient, null::int umirajici_klient, null::int mrtvy_klient from rfm_stores;
 
 
+alter table rfm_stores add column rfm_segment_vyse integer;
+alter table rfm_stores add column rfm_segment_frekvence integer;
+alter table rfm_stores add column rfm_segment_posledni integer;
+alter table rfm_stores add column rfm_segment_suma integer;
+
+update rfm_stores set rfm_segment_vyse = 1 where suma <= 1000;
+update rfm_stores set rfm_segment_vyse = 2 where suma > 1000 and suma <= 10000;
+update rfm_stores set rfm_segment_vyse = 3 where suma > 10000;
 
 
+update rfm_stores set rfm_segment_frekvence = 1 where pocet <= 4;
+update rfm_stores set rfm_segment_frekvence = 2 where pocet > 4 and pocet <= 16;
+update rfm_stores set rfm_segment_frekvence = 3 where pocet > 16;
+
+update rfm_stores set rfm_segment_posledni = 1 where days_free >= 30;
+update rfm_stores set rfm_segment_posledni = 2 where days_free < 30 and days_free >= 7;
+update rfm_stores set rfm_segment_posledni = 3 where days_free < 7;
+
+update rfm_stores set rfm_segment_suma = coalesce(rfm_segment_vyse,0)+coalesce(rfm_segment_frekvence,0)+coalesce(rfm_segment_posledni,0);
+--
+update rfm_stores_segments a set top_klient = b.pocet from (select count(*) pocet,store_id from rfm_stores where rfm_segment_suma >=8 group by store_id) b where a.store_id=b.store_id;
+update rfm_stores_segments a set bezny_klient = b.pocet from (select count(*) pocet,store_id from rfm_stores where rfm_segment_suma in (6,7) group by store_id) b where a.store_id=b.store_id;
+update rfm_stores_segments a set umirajici_klient = b.pocet from (select count(*) pocet,store_id from rfm_stores where rfm_segment_suma in (4,5) group by store_id) b where a.store_id=b.store_id;
+update rfm_stores_segments a set mrtvy_klient = b.pocet from (select count(*) pocet,store_id from rfm_stores where rfm_segment_suma in (3) group by store_id) b where a.store_id=b.store_id;
 
 
+-- pobocky
+create table pobocky as select
+   a.store_id,
+   retezec nazev,
+   city obec,
+   cardmereqh_street_name ulice,
+   cardmereqh_landreg_number cislo_popisne,
+   top_klient,
+   bezny_klient,
+   umirajici_klient,
+   mrtvy_klient, 
+   coalesce(longitude,cardmereqh_geo_longitude) lon,
+   coalesce(latitude,cardmereqh_geo_latitude) lat
+from
+   stores_web a 
+left join
+   rfm_stores_segments b 
+      on a.store_id=b.store_id;
+
+alter table pobocky alter COLUMN lon type double precision using lon::double precision;
+alter table pobocky alter COLUMN lat type double precision using lat::double precision;
+
+alter table pobocky add column geom geometry(point,3857);
+update pobocky set geom = st_transform(st_setsrid(st_makepoint(lon,lat),4326),3857);
+
+alter table pobocky add column obrat integer;
+alter table pobocky add column zmena_obrat integer;
+
+update pobocky a set obrat = b.suma from (select store_id,sum(suma_plateb) suma from transactions_records_agg group by store_id) b where a.store_id=b.s
+tore_id;
+
+update pobocky a set zmena_obrat = b.suma from (select store_id,sum(suma_plateb_4)-sum(suma_plateb_3) suma from transactions_records_agg group by store_id) b where a.store_id=b.store_id;
+
+alter table pobocky add column poradi integer;
+update pobocky a set poradi = b.poradi from (select store_id,obrat,rank() over (order by obrat desc) as poradi from pobocky order by obrat desc) b where a.store_id = b.store_id;
 
 
+alter table pobocky add column prum_nakup integer;
+update pobocky a set prum_nakup = b.prumer from (select sum(suma_plateb)/sum(pocet_plateb) prumer,store_id from transactions_records_agg group by store_id) b where a.store_id=b.store_id;
+
+alter table pobocky add column pocet_klientu integer;
+alter table pobocky add column pocet_transakci integer;
+alter table pobocky add column potencial int;
+
+
+update pobocky a set pocet_klientu=b.pocet from (select store_id,sum(pocet_klientu) pocet from transactions_records_agg group by store_id) b where a.store_id=b.store_id;
+update pobocky a set pocet_transakci=b.pocet from (select store_id,sum(pocet_plateb) pocet from transactions_records_agg group by store_id) b where a.store_id=b.store_id;
+
+alter table pobocky add column pocet_domacnosti int;
+alter table pobocky add column pocet_obyvatel int;
+
+update pobocky a set pocet_domacnosti = b.pocet from (select store_id,sum(pocet_domacnosti_zsj_d) pocet from transactions_records_agg where obrat_domacnost >=200 group by store_id) b where a.store_id=b.store_id;
+
+update pobocky a set pocet_obyvatel = b.pocet from (select store_id,sum(pocet_obyvatel_zsj_d) pocet from transactions_records_agg where obrat_domacnost >=200 group by store_id) b where a.store_id=b.store_id;
+
+update pobocky set potencial = pocet_domacnosti*20000;
+
+alter table pobocky add column vylovenost double precision;
+update pobocky set vylovenost = 1.0*obrat/potencial;
+
+--prekryv
+
+alter table spadovky add column prekryv_billa int;
+alter table spadovky add column prekryv_penny int;
+
+alter table spadovky add column retezec varchar(20);
+update spadovky a set retezec = b.retezec from stores b where a.store_id=b.store_id;
+
+update spadovky  a set prekryv_billa = b.pocet from (select kod,count(*) pocet from spadovky where retezec = 'billa' group by kod) b where a.kod=b.kod;
+update spadovky  a set prekryv_penny = b.pocet from (select kod,count(*) pocet from spadovky where retezec = 'penny' group by kod) b where a.kod=b.kod;
+
+alter table pobocky add column vnitrni_konkurence int;
+update pobocky a set vnitrni_konkurence = b.pocet from (select store_id,max(prekryv_billa) pocet from spadovky where retezec='billa' group by store_id) b where a.store_id=b.store_id;
+update pobocky a set vnitrni_konkurence = b.pocet from (select store_id,max(prekryv_penny) pocet from spadovky where retezec='penny' group by store_id) b where a.store_id=b.store_id;
 
 
 
