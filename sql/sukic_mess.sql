@@ -100,8 +100,25 @@ create table rfm_retezec_parties as select a.*,b.PSGEN_UNIFIED_DESC pohlavi,b.og
 drop table rfm_retezec;
 alter table rfm_retezec_parties rename to rfm_retezec;
 
+alter table rfm_retezec add column rfm_segment_vyse integer;
+alter table rfm_retezec add column rfm_segment_frekvence integer;
+alter table rfm_retezec add column rfm_segment_posledni integer;
+alter table rfm_retezec add column rfm_segment_suma integer;
+
+update rfm_retezec set rfm_segment_vyse = 1 where suma <= 1000;
+update rfm_retezec set rfm_segment_vyse = 2 where suma > 1000 and suma <= 10000;
+update rfm_retezec set rfm_segment_vyse = 3 where suma > 10000;
 
 
+update rfm_retezec set rfm_segment_frekvence = 1 where pocet <= 4;
+update rfm_retezec set rfm_segment_frekvence = 2 where pocet > 4 and pocet <= 16;
+update rfm_retezec set rfm_segment_frekvence = 3 where pocet > 16;
+
+update rfm_retezec set rfm_segment_posledni = 1 where days_free >= 30;
+update rfm_retezec set rfm_segment_posledni = 2 where days_free < 30 and days_free >= 7;
+update rfm_retezec set rfm_segment_posledni = 3 where days_free < 7;
+
+update rfm_retezec set rfm_segment_suma = coalesce(rfm_segment_vyse,0)+coalesce(rfm_segment_frekvence,0)+coalesce(rfm_segment_posledni,0);
 
 
 
