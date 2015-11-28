@@ -160,12 +160,12 @@ BEGIN;
 ALTER TABLE equipments ADD COLUMN wkb_geometry geometry(POINT, 4326);
 UPDATE equipments SET cardmereqh_geo_latitude = replace(cardmereqh_geo_latitude, ',', '.');
 UPDATE equipments SET cardmereqh_geo_longitude = replace(cardmereqh_geo_longitude, ',', '.');
-UPDATE equipments SET wkb_geometry = ST_SetSRID(ST_MakePoint(cardmereqh_geo_longitude, cardmereqh_geo_latitude), 4326);
+UPDATE equipments SET wkb_geometry = ST_SetSRID(ST_MakePoint(cardmereqh_geo_longitude::float, cardmereqh_geo_latitude::float), 4326);
 
 ALTER TABLE parties ADD COLUMN wkb_geometry geometry(POINT, 4326);
 UPDATE parties SET cardmereqh_geo_latitude = replace(cardmereqh_geo_latitude, ',', '.');
 UPDATE parties SET cardmereqh_geo_longitude = replace(cardmereqh_geo_longitude, ',', '.');
-UPDATE parties SET wkb_geometry = ST_SetSRID(ST_MakePoint(party_address_geo_longitude, party_address_geo_latitude), 4326);
+UPDATE parties SET wkb_geometry = ST_SetSRID(ST_MakePoint(party_address_geo_longitude::float, party_address_geo_latitude::float), 4326);
 
 CREATE INDEX equipments_geom_idx ON equipments USING gist(wkb_geometry);
 CREATE INDEX parties_geom_idx ON parties USING gist(wkb_geometry);
