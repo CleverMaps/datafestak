@@ -84,10 +84,20 @@ SELECT kod_zsj_d,
     SUM(cardtr_amount_czk::float) suma_plateb,
     SUM(cardtr_amount_czk::float) / NULLIF(pocet_domacnosti_zsj_d, 0) obrat_domacnost,
     AVG(cardtr_amount_czk::float) prumerna_platba,
-    SUM(CASE WHEN extract(month from cardtr_trans_local_datetime::timestamp) = 3 THEN cardtr_amount_czk::float ELSE 0 END) suma_plateb_3,
-    SUM(CASE WHEN extract(month from cardtr_trans_local_datetime::timestamp) = 4 THEN cardtr_amount_czk::float ELSE 0 END) suma_plateb_4,
+    SUM(CASE WHEN extract(month from cardtr_trans_local_datetime::timestamp) = 1 THEN cardtr_amount_czk::float ELSE 0 END) suma_plateb_3,
+    SUM(CASE WHEN extract(month from cardtr_trans_local_datetime::timestamp) = 2 THEN cardtr_amount_czk::float ELSE 0 END) suma_plateb_4,
     COUNT(DISTINCT card_key) pocet_karet,
     COUNT(1) pocet_plateb,
+    COUNT(CASE WHEN cardtr_amount_czk::float < 50 THEN 1 END) transakce_count_0,
+    COUNT(CASE WHEN cardtr_amount_czk::float >= 50 AND 1 <= 99 THEN cardtr_amount_czk::float END) transakce_count_50,
+    COUNT(CASE WHEN cardtr_amount_czk::float >= 100 AND 1 <= 249 THEN cardtr_amount_czk::float END) transakce_count_100,
+    COUNT(CASE WHEN cardtr_amount_czk::float >= 250 AND 1 <= 499 THEN cardtr_amount_czk::float END) transakce_count_250,
+    COUNT(CASE WHEN cardtr_amount_czk::float >= 500 THEN 1 END) transakce_count_500,
+    SUM(CASE WHEN cardtr_amount_czk::float < 50 THEN cardtr_amount_czk::float END) transakce_sum_0,
+    SUM(CASE WHEN cardtr_amount_czk::float >= 50 AND cardtr_amount_czk::float <= 99 THEN cardtr_amount_czk::float END) transakce_sum_50,
+    SUM(CASE WHEN cardtr_amount_czk::float >= 100 AND cardtr_amount_czk::float <= 249 THEN cardtr_amount_czk::float END) transakce_sum_100,
+    SUM(CASE WHEN cardtr_amount_czk::float >= 250 AND cardtr_amount_czk::float <= 499 THEN cardtr_amount_czk::float END) transakce_sum_250,
+    SUM(CASE WHEN cardtr_amount_czk::float >= 500 THEN cardtr_amount_czk::float END) transakce_sum_500,
     COUNT(DISTINCT pt_unified_key) pocet_klientu,
     SUM(zeny) pocet_zen,
     SUM(muzi) pocet_muzu,
@@ -204,14 +214,34 @@ CREATE TABLE spadovky AS
 SELECT geom,
     a.naz_zsj_d nazev,
     a.kod_zsj_d kod,
-    pocet_domacnosti_zsj_d * 4 * 4000,
+    pocet_domacnosti_zsj_d * 4 * 4000 potencial,
     suma_plateb / (NULLIF(pocet_domacnosti_zsj_d, 0) * 4 * 4000) vylovenost,
     suma_plateb obrat,
     store_id,
     prumerna_platba prumerny_nakup,
     pocet_karet,
-    obrat_domacnost
+    obrat_domacnost,
+    transakce_count_0,
+    transakce_count_50,
+    transakce_count_100,
+    transakce_count_250,
+    transakce_count_500,
+    transakce_sum_0,
+    transakce_sum_50,
+    transakce_sum_100,
+    transakce_sum_250,
+    transakce_sum_500
 FROM transactions_records_agg a
 JOIN g_zsj_d_3857 b ON (a.kod_zsj_d = b.kod_zsj_d);
+
+alter table spadovky add column prekryv_billa int;
+alter table spadovky add column prekryv_penny int;
+
+alter table spadovky add column retezec varchar(20);
+update spadovky a set retezec = b.retezec from stores b where a.store_id=b.store_id;
+
+update spadovky a set prekryv_billa = b.pocet from (select kod,count(*) pocet from spadovky where retezec = 'billa' and obrat_domacnost >=200 group by kod) b where a.kod=b.kod;
+update spadovky a set prekryv_penny = b.pocet from (select kod,count(*) pocet from spadovky where retezec = 'penny' and obrat_domacnost >=200 group by kod) b where a.kod=b.kod;
+
 
 COMMIT;
