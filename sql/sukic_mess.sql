@@ -216,8 +216,9 @@ update pobocky set potencial = pocet_domacnosti*20000;
 alter table pobocky add column vylovenost double precision;
 update pobocky set vylovenost = 1.0*obrat/potencial;
 
---prekryv
+--prekryv -- presunuto do filter.sql
 
+/*
 alter table spadovky add column prekryv_billa int;
 alter table spadovky add column prekryv_penny int;
 
@@ -230,7 +231,7 @@ update spadovky  a set prekryv_penny = b.pocet from (select kod,count(*) pocet f
 alter table pobocky add column vnitrni_konkurence int;
 update pobocky a set vnitrni_konkurence = b.pocet from (select store_id,max(prekryv_billa) pocet from spadovky where retezec='billa' group by store_id) b where a.store_id=b.store_id;
 update pobocky a set vnitrni_konkurence = b.pocet from (select store_id,max(prekryv_penny) pocet from spadovky where retezec='penny' group by store_id) b where a.store_id=b.store_id;
-
+*/
 
 
 
