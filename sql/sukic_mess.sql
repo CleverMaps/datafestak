@@ -19,7 +19,7 @@ WHERE EXISTS (
 
 COMMIT;
 
--- smazani automatu ze supsetu equipments
+-- smazani automatu ze subsetu equipments
 delete from equipments_subset where cardmerc_unified_desc = 'ATM';
 
 -- stores
